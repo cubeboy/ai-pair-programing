@@ -1,0 +1,248 @@
+@startuml Class Diagram - Accounting System
+
+title 회계 관리 솔루션 - 클래스 다이어그램
+
+package "Domain Layer" {
+    package "account" {
+        class Account {
+            -id: AccountId
+            -code: String
+            -name: String
+            -type: AccountType
+            -parentId: AccountId?
+            -isActive: Boolean
+            -createdAt: LocalDateTime
+            -updatedAt: LocalDateTime
+            +isDebitAccount(): Boolean
+            +isCreditAccount(): Boolean
+            +deactivate(): Account
+        }
+        
+        class AccountId {
+            +value: Long
+        }
+        
+        enum AccountType {
+            ASSET
+            LIABILITY
+            EQUITY
+            REVENUE
+            EXPENSE
+        }
+    }
+    
+    package "transaction" {
+        class Transaction {
+            -id: TransactionId
+            -date: LocalDate
+            -description: String
+            -reference: String?
+            -entries: List<TransactionEntry>
+            -status: TransactionStatus
+            -createdAt: LocalDateTime
+            -updatedAt: LocalDateTime
+            -isBalanced(): Boolean
+            +post(): Transaction
+            +reverse(): Transaction
+        }
+        
+        class TransactionId {
+            +value: Long
+        }
+        
+        class TransactionEntry {
+            -accountId: AccountId
+            -type: EntryType
+            -amount: BigDecimal
+            -description: String?
+        }
+        
+        enum EntryType {
+            DEBIT
+            CREDIT
+        }
+        
+        enum TransactionStatus {
+            DRAFT
+            POSTED
+            REVERSED
+        }
+    }
+}
+
+package "Application Layer" {
+    package "port.in" {
+        interface AccountUseCase {
+            +createAccount(command: CreateAccountCommand): Account
+            +updateAccount(command: UpdateAccountCommand): Account
+            +deactivateAccount(accountId: AccountId): Account
+            +getAccount(accountId: AccountId): Account
+            +getAccountsByType(type: AccountType): List<Account>
+            +getAllActiveAccounts(): List<Account>
+        }
+        
+        interface TransactionUseCase {
+            +createTransaction(command: CreateTransactionCommand): Transaction
+            +postTransaction(transactionId: TransactionId): Transaction
+            +reverseTransaction(transactionId: TransactionId): Transaction
+            +getTransaction(transactionId: TransactionId): Transaction
+            +getTransactionsByAccount(accountId: AccountId): List<Transaction>
+            +getTransactionsByDateRange(startDate: LocalDate, endDate: LocalDate): List<Transaction>
+        }
+        
+        class CreateAccountCommand {
+            +code: String
+            +name: String
+            +type: AccountType
+            +parentId: AccountId?
+        }
+        
+        class UpdateAccountCommand {
+            +accountId: AccountId
+            +name: String
+            +parentId: AccountId?
+        }
+        
+        class CreateTransactionCommand {
+            +date: LocalDate
+            +description: String
+            +reference: String?
+            +entries: List<CreateTransactionEntryCommand>
+        }
+        
+        class CreateTransactionEntryCommand {
+            +accountId: AccountId
+            +type: EntryType
+            +amount: BigDecimal
+            +description: String?
+        }
+    }
+    
+    package "port.out" {
+        interface AccountRepository {
+            +save(account: Account): Account
+            +findById(id: AccountId): Account?
+            +findByCode(code: String): Account?
+            +findByType(type: AccountType): List<Account>
+            +findAllActive(): List<Account>
+            +findByParentId(parentId: AccountId): List<Account>
+            +existsByCode(code: String): Boolean
+            +delete(id: AccountId)
+        }
+    }
+    
+    package "service" {
+        class AccountService {
+            -accountRepository: AccountRepository
+            +createAccount(command: CreateAccountCommand): Account
+            +updateAccount(command: UpdateAccountCommand): Account
+            +deactivateAccount(accountId: AccountId): Account
+            +getAccount(accountId: AccountId): Account
+            +getAccountsByType(type: AccountType): List<Account>
+            +getAllActiveAccounts(): List<Account>
+        }
+    }
+}
+
+package "Infrastructure Layer" {
+    package "persistence.account" {
+        class AccountJpaEntity {
+            -id: Long
+            -code: String
+            -name: String
+            -type: AccountType
+            -parentId: Long?
+            -isActive: Boolean
+            -createdAt: LocalDateTime
+            -updatedAt: LocalDateTime
+            +toDomain(): Account
+            +fromDomain(account: Account): AccountJpaEntity
+        }
+        
+        interface AccountJpaRepository {
+            +findByCode(code: String): AccountJpaEntity?
+            +findByType(type: AccountType): List<AccountJpaEntity>
+            +findByIsActiveTrue(): List<AccountJpaEntity>
+            +findByParentId(parentId: Long): List<AccountJpaEntity>
+            +existsByCode(code: String): Boolean
+            +findAllActiveOrderByCode(): List<AccountJpaEntity>
+        }
+        
+        class AccountRepositoryImpl {
+            -jpaRepository: AccountJpaRepository
+            +save(account: Account): Account
+            +findById(id: AccountId): Account?
+            +findByCode(code: String): Account?
+            +findByType(type: AccountType): List<Account>
+            +findAllActive(): List<Account>
+            +findByParentId(parentId: AccountId): List<Account>
+            +existsByCode(code: String): Boolean
+            +delete(id: AccountId)
+        }
+    }
+}
+
+package "Interface Layer" {
+    package "rest" {
+        class AccountController {
+            -accountUseCase: AccountUseCase
+            +createAccount(request: CreateAccountRequest): ResponseEntity<AccountResponse>
+            +updateAccount(id: Long, request: UpdateAccountRequest): ResponseEntity<AccountResponse>
+            +deactivateAccount(id: Long): ResponseEntity<AccountResponse>
+            +getAccount(id: Long): ResponseEntity<AccountResponse>
+            +getAccounts(type: AccountType?): ResponseEntity<List<AccountResponse>>
+        }
+        
+        package "dto" {
+            class AccountResponse {
+                +id: Long
+                +code: String
+                +name: String
+                +type: AccountType
+                +parentId: Long?
+                +isActive: Boolean
+                +createdAt: LocalDateTime
+                +updatedAt: LocalDateTime
+                +fromDomain(account: Account): AccountResponse
+            }
+            
+            class CreateAccountRequest {
+                +code: String
+                +name: String
+                +type: AccountType
+                +parentId: Long?
+            }
+            
+            class UpdateAccountRequest {
+                +name: String
+                +parentId: Long?
+            }
+        }
+    }
+}
+
+' Relationships
+Account ||--|| AccountId : has
+Account ||--|| AccountType : has
+Account ||--o{ Account : parent/child
+
+Transaction ||--|| TransactionId : has
+Transaction ||--|| TransactionStatus : has
+Transaction ||--o{ TransactionEntry : contains
+TransactionEntry ||--|| AccountId : references
+TransactionEntry ||--|| EntryType : has
+
+AccountUseCase ||..|| AccountService : implements
+AccountRepository ||..|| AccountRepositoryImpl : implements
+AccountRepositoryImpl ||--|| AccountJpaRepository : uses
+AccountJpaRepository ||--o{ AccountJpaEntity : manages
+
+AccountController ||--|| AccountUseCase : uses
+AccountController ||--|| AccountResponse : creates
+AccountController ||--|| CreateAccountRequest : receives
+AccountController ||--|| UpdateAccountRequest : receives
+
+AccountRepositoryImpl ||..|| Account : converts to/from
+AccountJpaEntity ||..|| Account : converts to/from
+
+@enduml

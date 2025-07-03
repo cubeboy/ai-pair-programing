@@ -1,0 +1,269 @@
+@startuml Sequence Diagram - Account Management
+
+!theme plain
+title 회계 관리 솔루션 - 계정과목 관리 시퀀스 다이어그램
+
+actor Client
+participant "AccountController" as Controller
+participant "AccountService" as Service
+participant "AccountRepositoryImpl" as Repository
+participant "AccountJpaRepository" as JpaRepo
+database "Database" as DB
+
+== 계정과목 생성 ==
+Client -> Controller: POST /api/v1/accounts\n(CreateAccountRequest)
+activate Controller
+
+Controller -> Controller: CreateAccountCommand 생성
+Controller -> Service: createAccount(command)
+activate Service
+
+Service -> Repository: existsByCode(code)
+activate Repository
+Repository -> JpaRepo: existsByCode(code)
+activate JpaRepo
+JpaRepo -> DB: SELECT count(*) FROM accounts WHERE code = ?
+activate DB
+DB --> JpaRepo: count
+deactivate DB
+JpaRepo --> Repository: boolean
+deactivate JpaRepo
+Repository --> Service: boolean
+deactivate Repository
+
+alt 계정코드가 이미 존재하는 경우
+    Service --> Controller: throw IllegalArgumentException
+    Controller --> Client: 400 Bad Request
+else 계정코드가 존재하지 않는 경우
+    
+    opt 상위계정이 지정된 경우
+        Service -> Repository: findById(parentId)
+        activate Repository
+        Repository -> JpaRepo: findById(parentId)
+        activate JpaRepo
+        JpaRepo -> DB: SELECT * FROM accounts WHERE id = ?
+        activate DB
+        DB --> JpaRepo: AccountJpaEntity
+        deactivate DB
+        JpaRepo --> Repository: Optional<AccountJpaEntity>
+        deactivate JpaRepo
+        Repository -> Repository: entity.toDomain()
+        Repository --> Service: Account?
+        deactivate Repository
+        
+        alt 상위계정을 찾을 수 없는 경우
+            Service --> Controller: throw IllegalArgumentException
+            Controller --> Client: 400 Bad Request
+        else 상위계정이 비활성화된 경우
+            Service --> Controller: throw IllegalArgumentException
+            Controller --> Client: 400 Bad Request
+        end
+    end
+    
+    Service -> Service: Account 도메인 객체 생성
+    Service -> Repository: save(account)
+    activate Repository
+    Repository -> Repository: AccountJpaEntity.fromDomain(account)
+    Repository -> JpaRepo: save(entity)
+    activate JpaRepo
+    JpaRepo -> DB: INSERT INTO accounts (...)
+    activate DB
+    DB --> JpaRepo: saved entity with generated ID
+    deactivate DB
+    JpaRepo --> Repository: AccountJpaEntity
+    deactivate JpaRepo
+    Repository -> Repository: entity.toDomain()
+    Repository --> Service: Account
+    deactivate Repository
+    Service --> Controller: Account
+    deactivate Service
+    
+    Controller -> Controller: AccountResponse.fromDomain(account)
+    Controller --> Client: 201 Created\n(AccountResponse)
+end
+deactivate Controller
+
+== 계정과목 조회 ==
+Client -> Controller: GET /api/v1/accounts/{id}
+activate Controller
+
+Controller -> Service: getAccount(AccountId(id))
+activate Service
+
+Service -> Repository: findById(AccountId(id))
+activate Repository
+Repository -> JpaRepo: findById(id)
+activate JpaRepo
+JpaRepo -> DB: SELECT * FROM accounts WHERE id = ?
+activate DB
+DB --> JpaRepo: AccountJpaEntity?
+deactivate DB
+JpaRepo --> Repository: Optional<AccountJpaEntity>
+deactivate JpaRepo
+
+alt 계정을 찾을 수 없는 경우
+    Repository --> Service: null
+    deactivate Repository
+    Service --> Controller: throw IllegalArgumentException
+    Controller --> Client: 404 Not Found
+else 계정을 찾은 경우
+    Repository -> Repository: entity.toDomain()
+    Repository --> Service: Account
+    deactivate Repository
+    Service --> Controller: Account
+    deactivate Service
+    
+    Controller -> Controller: AccountResponse.fromDomain(account)
+    Controller --> Client: 200 OK\n(AccountResponse)
+end
+deactivate Controller
+
+== 계정과목 수정 ==
+Client -> Controller: PUT /api/v1/accounts/{id}\n(UpdateAccountRequest)
+activate Controller
+
+Controller -> Controller: UpdateAccountCommand 생성
+Controller -> Service: updateAccount(command)
+activate Service
+
+Service -> Repository: findById(accountId)
+activate Repository
+Repository -> JpaRepo: findById(id)
+activate JpaRepo
+JpaRepo -> DB: SELECT * FROM accounts WHERE id = ?
+activate DB
+DB --> JpaRepo: AccountJpaEntity?
+deactivate DB
+JpaRepo --> Repository: Optional<AccountJpaEntity>
+deactivate JpaRepo
+
+alt 계정을 찾을 수 없는 경우
+    Repository --> Service: null
+    deactivate Repository
+    Service --> Controller: throw IllegalArgumentException
+    Controller --> Client: 404 Not Found
+else 계정을 찾은 경우
+    Repository -> Repository: entity.toDomain()
+    Repository --> Service: Account
+    deactivate Repository
+    
+    opt 상위계정 변경이 요청된 경우
+        Service -> Repository: findById(parentId)
+        activate Repository
+        Repository -> JpaRepo: findById(parentId)
+        activate JpaRepo
+        JpaRepo -> DB: SELECT * FROM accounts WHERE id = ?
+        activate DB
+        DB --> JpaRepo: AccountJpaEntity?
+        deactivate DB
+        JpaRepo --> Repository: Optional<AccountJpaEntity>
+        deactivate JpaRepo
+        
+        alt 상위계정을 찾을 수 없는 경우
+            Repository --> Service: null
+            deactivate Repository
+            Service --> Controller: throw IllegalArgumentException
+            Controller --> Client: 400 Bad Request
+        else 상위계정이 비활성화된 경우 또는 자기 자신인 경우
+            Repository -> Repository: entity.toDomain()
+            Repository --> Service: Account
+            deactivate Repository
+            Service --> Controller: throw IllegalArgumentException
+            Controller --> Client: 400 Bad Request
+        end
+    end
+    
+    Service -> Service: account.copy(name, parentId)
+    Service -> Repository: save(updatedAccount)
+    activate Repository
+    Repository -> Repository: AccountJpaEntity.fromDomain(account)
+    Repository -> JpaRepo: save(entity)
+    activate JpaRepo
+    JpaRepo -> DB: UPDATE accounts SET ...
+    activate DB
+    DB --> JpaRepo: updated entity
+    deactivate DB
+    JpaRepo --> Repository: AccountJpaEntity
+    deactivate JpaRepo
+    Repository -> Repository: entity.toDomain()
+    Repository --> Service: Account
+    deactivate Repository
+    Service --> Controller: Account
+    deactivate Service
+    
+    Controller -> Controller: AccountResponse.fromDomain(account)
+    Controller --> Client: 200 OK\n(AccountResponse)
+end
+deactivate Controller
+
+== 계정과목 비활성화 ==
+Client -> Controller: DELETE /api/v1/accounts/{id}
+activate Controller
+
+Controller -> Service: deactivateAccount(AccountId(id))
+activate Service
+
+Service -> Repository: findById(accountId)
+activate Repository
+Repository -> JpaRepo: findById(id)
+activate JpaRepo
+JpaRepo -> DB: SELECT * FROM accounts WHERE id = ?
+activate DB
+DB --> JpaRepo: AccountJpaEntity?
+deactivate DB
+JpaRepo --> Repository: Optional<AccountJpaEntity>
+deactivate JpaRepo
+
+alt 계정을 찾을 수 없는 경우
+    Repository --> Service: null
+    deactivate Repository
+    Service --> Controller: throw IllegalArgumentException
+    Controller --> Client: 404 Not Found
+else 계정을 찾은 경우
+    Repository -> Repository: entity.toDomain()
+    Repository --> Service: Account
+    deactivate Repository
+    
+    Service -> Repository: findByParentId(accountId)
+    activate Repository
+    Repository -> JpaRepo: findByParentId(id)
+    activate JpaRepo
+    JpaRepo -> DB: SELECT * FROM accounts WHERE parent_id = ?
+    activate DB
+    DB --> JpaRepo: List<AccountJpaEntity>
+    deactivate DB
+    JpaRepo --> Repository: List<AccountJpaEntity>
+    deactivate JpaRepo
+    Repository -> Repository: entities.map { it.toDomain() }
+    Repository --> Service: List<Account>
+    deactivate Repository
+    
+    alt 하위 계정이 존재하는 경우
+        Service --> Controller: throw IllegalArgumentException
+        Controller --> Client: 400 Bad Request
+    else 하위 계정이 없는 경우
+        Service -> Service: account.deactivate()
+        Service -> Repository: save(deactivatedAccount)
+        activate Repository
+        Repository -> Repository: AccountJpaEntity.fromDomain(account)
+        Repository -> JpaRepo: save(entity)
+        activate JpaRepo
+        JpaRepo -> DB: UPDATE accounts SET is_active = false
+        activate DB
+        DB --> JpaRepo: updated entity
+        deactivate DB
+        JpaRepo --> Repository: AccountJpaEntity
+        deactivate JpaRepo
+        Repository -> Repository: entity.toDomain()
+        Repository --> Service: Account
+        deactivate Repository
+        Service --> Controller: Account
+        deactivate Service
+        
+        Controller -> Controller: AccountResponse.fromDomain(account)
+        Controller --> Client: 200 OK\n(AccountResponse)
+    end
+end
+deactivate Controller
+
+@enduml
