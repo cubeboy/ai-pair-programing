@@ -47,7 +47,20 @@ class AccountJpaEntity(
             updatedAt = updatedAt
         )
     }
-    
+
+    fun copy(id: Int): AccountJpaEntity {
+        return AccountJpaEntity(
+            id = id.toLong(),
+            code = code,
+            name = name,
+            type = type,
+            parentId = parentId,
+            isActive = isActive,
+            createdAt = createdAt,
+            updatedAt = updatedAt
+        )
+    }
+
     companion object {
         fun fromDomain(account: Account): AccountJpaEntity {
             return AccountJpaEntity(
