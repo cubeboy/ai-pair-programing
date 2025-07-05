@@ -1,0 +1,95 @@
+@startuml Sequence Diagram - Get Account
+
+!theme plain
+title 회계 관리 솔루션 - 계정과목 조회 시퀀스 다이어그램
+
+actor Client
+participant "AccountController" as Controller
+participant "AccountService" as Service
+participant "AccountRepositoryImpl" as Repository
+participant "AccountJpaRepository" as JpaRepo
+database "Database" as DB
+
+== 단일 계정 조회 ==
+Client -> Controller: GET /api/v1/accounts/{id}
+activate Controller
+
+Controller -> Service: getAccount(AccountId(id))
+activate Service
+
+Service -> Repository: findById(AccountId(id))
+activate Repository
+Repository -> JpaRepo: findById(id)
+activate JpaRepo
+JpaRepo -> DB: SELECT * FROM accounts WHERE id = ?
+activate DB
+DB --> JpaRepo: AccountJpaEntity?
+deactivate DB
+JpaRepo --> Repository: Optional<AccountJpaEntity>
+deactivate JpaRepo
+
+alt 계정을 찾을 수 없는 경우
+    Repository --> Service: null
+    deactivate Repository
+    Service --> Controller: throw IllegalArgumentException\n"계정 없음"
+    Controller --> Client: 404 Not Found
+'    stop
+else 계정을 찾은 경우
+    Repository -> Repository: entity.toDomain()
+    Repository --> Service: Account
+    deactivate Repository
+    Service --> Controller: Account
+    deactivate Service
+    
+    Controller -> Controller: AccountResponse.fromDomain(account)
+    Controller --> Client: 200 OK\n(AccountResponse)
+end
+deactivate Controller
+
+== 계정 목록 조회 ==
+Client -> Controller: GET /api/v1/accounts\n(?type=ASSET)
+activate Controller
+
+alt 타입별 조회인 경우
+    Controller -> Service: getAccountsByType(type)
+    activate Service
+    Service -> Repository: findByType(type)
+    activate Repository
+    Repository -> JpaRepo: findByType(type)
+    activate JpaRepo
+    JpaRepo -> DB: SELECT * FROM accounts WHERE type = ?
+    activate DB
+    DB --> JpaRepo: List<AccountJpaEntity>
+    deactivate DB
+    JpaRepo --> Repository: List<AccountJpaEntity>
+    deactivate JpaRepo
+    Repository -> Repository: entities.map { it.toDomain() }
+    Repository --> Service: List<Account>
+    deactivate Repository
+    Service --> Controller: List<Account>
+    deactivate Service
+else 전체 활성 계정 조회인 경우
+    Controller -> Service: getAllActiveAccounts()
+    activate Service
+    Service -> Repository: findAllActive()
+    activate Repository
+    Repository -> JpaRepo: findAllActiveOrderByCode()
+    activate JpaRepo
+    JpaRepo -> DB: SELECT * FROM accounts\nWHERE is_active = true\nORDER BY code
+    activate DB
+    DB --> JpaRepo: List<AccountJpaEntity>
+    deactivate DB
+    JpaRepo --> Repository: List<AccountJpaEntity>
+    deactivate JpaRepo
+    Repository -> Repository: entities.map { it.toDomain() }
+    Repository --> Service: List<Account>
+    deactivate Repository
+    Service --> Controller: List<Account>
+    deactivate Service
+end
+
+Controller -> Controller: accounts.map {\n  AccountResponse.fromDomain(it)\n}
+Controller --> Client: 200 OK\n(List<AccountResponse>)
+deactivate Controller
+
+@enduml

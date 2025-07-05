@@ -1,0 +1,88 @@
+@startuml Sequence Diagram - Deactivate Account
+
+!theme plain
+title 회계 관리 솔루션 - 계정과목 비활성화 시퀀스 다이어그램
+
+actor Client
+participant "AccountController" as Controller
+participant "AccountService" as Service
+participant "AccountRepositoryImpl" as Repository
+participant "AccountJpaRepository" as JpaRepo
+database "Database" as DB
+
+Client -> Controller: DELETE /api/v1/accounts/{id}
+activate Controller
+
+Controller -> Service: deactivateAccount(AccountId(id))
+activate Service
+
+' 기존 계정 조회
+Service -> Repository: findById(accountId)
+activate Repository
+Repository -> JpaRepo: findById(id)
+activate JpaRepo
+JpaRepo -> DB: SELECT * FROM accounts WHERE id = ?
+activate DB
+DB --> JpaRepo: AccountJpaEntity?
+deactivate DB
+JpaRepo --> Repository: Optional<AccountJpaEntity>
+deactivate JpaRepo
+
+alt 계정을 찾을 수 없는 경우
+    Repository --> Service: null
+    deactivate Repository
+    Service --> Controller: throw IllegalArgumentException\n"계정 없음"
+    Controller --> Client: 404 Not Found
+'    stop
+else 계정을 찾은 경우
+    Repository -> Repository: entity.toDomain()
+    Repository --> Service: Account
+    deactivate Repository
+end
+
+' 하위 계정 존재 여부 확인
+Service -> Repository: findByParentId(accountId)
+activate Repository
+Repository -> JpaRepo: findByParentId(id)
+activate JpaRepo
+JpaRepo -> DB: SELECT * FROM accounts\nWHERE parent_id = ?
+activate DB
+DB --> JpaRepo: List<AccountJpaEntity>
+deactivate DB
+JpaRepo --> Repository: List<AccountJpaEntity>
+deactivate JpaRepo
+Repository -> Repository: entities.map { it.toDomain() }
+Repository --> Service: List<Account>
+deactivate Repository
+
+alt 하위 계정이 존재하는 경우
+    Service --> Controller: throw IllegalArgumentException\n"하위 계정 존재"
+    Controller --> Client: 400 Bad Request
+'    stop
+else 하위 계정이 없는 경우
+    ' 계정 비활성화
+    Service -> Service: account.deactivate()
+    Service -> Repository: save(deactivatedAccount)
+    activate Repository
+    Repository -> Repository: AccountJpaEntity.fromDomain(account)
+    Repository -> JpaRepo: save(entity)
+    activate JpaRepo
+    JpaRepo -> DB: UPDATE accounts SET\nis_active = false, updated_at = ?\nWHERE id = ?
+    activate DB
+    DB --> JpaRepo: updated entity
+    deactivate DB
+    JpaRepo --> Repository: AccountJpaEntity
+    deactivate JpaRepo
+    Repository -> Repository: entity.toDomain()
+    Repository --> Service: Account
+    deactivate Repository
+    
+    Service --> Controller: Account
+    deactivate Service
+    
+    Controller -> Controller: AccountResponse.fromDomain(account)
+    Controller --> Client: 200 OK\n(AccountResponse)
+end
+deactivate Controller
+
+@enduml

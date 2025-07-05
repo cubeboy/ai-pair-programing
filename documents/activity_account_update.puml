@@ -1,0 +1,81 @@
+@startuml Activity Diagram - Update Account
+
+!theme plain
+title 회계 관리 솔루션 - 계정과목 수정 액티비티 다이어그램
+
+|Client|
+start
+:계정과목 수정 요청;
+:PUT /api/v1/accounts/{id}\n(UpdateAccountRequest);
+
+|AccountController|
+:요청 수신;
+:UpdateAccountCommand 생성;
+
+|AccountService|
+:기존 계정 조회;
+
+if (계정 존재?) then (no)
+    :예외 발생\n"계정 없음";
+    |Client|
+    :404 Not Found 응답;
+    stop
+else (yes)
+    if (상위계정 변경 요청?) then (yes)
+        :새 상위계정 조회;
+        
+        if (상위계정 존재?) then (no)
+            :예외 발생\n"상위계정 없음";
+            |Client|
+            :400 Bad Request 응답;
+            stop
+        else (yes)
+            if (상위계정 활성?) then (no)
+                :예외 발생\n"비활성 상위계정";
+                |Client|
+                :400 Bad Request 응답;
+                stop
+            else (yes)
+                if (자기 참조?) then (yes)
+                    :예외 발생\n"자기 자신을 상위계정으로 설정";
+                    |Client|
+                    :400 Bad Request 응답;
+                    stop
+                endif
+            endif
+        endif
+    endif
+    
+    :계정 정보 업데이트;
+    note right
+        기존 계정 객체의 copy() 메소드 사용
+        - name 업데이트
+        - parentId 업데이트 (선택적)
+        - updatedAt 자동 설정
+    end note
+    
+    |AccountRepositoryImpl|
+    :도메인 객체를 JPA 엔티티로 변환;
+    
+    |Database|
+    :계정과목 정보 업데이트;
+    note right
+        UPDATE accounts SET
+        name = ?, parent_id = ?, 
+        updated_at = ?
+        WHERE id = ?
+    end note
+    
+    |AccountRepositoryImpl|
+    :저장된 엔티티를 도메인 객체로 변환;
+    
+    |AccountController|
+    :Account를 AccountResponse로 변환;
+    
+    |Client|
+    :200 OK 응답\n(AccountResponse);
+endif
+
+stop
+
+@enduml

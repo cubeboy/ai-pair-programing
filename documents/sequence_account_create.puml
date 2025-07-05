@@ -1,0 +1,92 @@
+@startuml Sequence Diagram - Create Account
+
+!theme plain
+title 회계 관리 솔루션 - 계정과목 생성 시퀀스 다이어그램
+
+actor Client
+participant "AccountController" as Controller
+participant "AccountService" as Service
+participant "AccountRepositoryImpl" as Repository
+participant "AccountJpaRepository" as JpaRepo
+database "Database" as DB
+
+Client -> Controller: POST /api/v1/accounts\n(CreateAccountRequest)
+activate Controller
+
+Controller -> Controller: CreateAccountCommand 생성
+
+Controller -> Service: createAccount(command)
+activate Service
+
+' 계정코드 중복 검사
+Service -> Repository: existsByCode(code)
+activate Repository
+Repository -> JpaRepo: existsByCode(code)
+activate JpaRepo
+JpaRepo -> DB: SELECT count(*) FROM accounts WHERE code = ?
+activate DB
+DB --> JpaRepo: count
+deactivate DB
+JpaRepo --> Repository: boolean
+deactivate JpaRepo
+Repository --> Service: boolean
+deactivate Repository
+
+alt 계정코드가 이미 존재하는 경우
+    Service --> Controller: throw IllegalArgumentException\n"계정코드 이미 존재"
+    Controller --> Client: 400 Bad Request
+'    stop
+end
+
+' 상위계정 검증 (선택적)
+opt 상위계정이 지정된 경우
+    Service -> Repository: findById(parentId)
+    activate Repository
+    Repository -> JpaRepo: findById(parentId)
+    activate JpaRepo
+    JpaRepo -> DB: SELECT * FROM accounts WHERE id = ?
+    activate DB
+    DB --> JpaRepo: AccountJpaEntity
+    deactivate DB
+    JpaRepo --> Repository: Optional<AccountJpaEntity>
+    deactivate JpaRepo
+    Repository -> Repository: entity.toDomain()
+    Repository --> Service: Account?
+    deactivate Repository
+    
+    alt 상위계정을 찾을 수 없는 경우
+        Service --> Controller: throw IllegalArgumentException\n"상위계정 없음"
+        Controller --> Client: 400 Bad Request
+'        stop
+    else 상위계정이 비활성화된 경우
+        Service --> Controller: throw IllegalArgumentException\n"비활성 상위계정"
+        Controller --> Client: 400 Bad Request
+'        stop
+    end
+end
+
+' 계정 생성 및 저장
+Service -> Service: Account 도메인 객체 생성
+Service -> Repository: save(account)
+activate Repository
+Repository -> Repository: AccountJpaEntity.fromDomain(account)
+Repository -> JpaRepo: save(entity)
+activate JpaRepo
+JpaRepo -> DB: INSERT INTO accounts\n(code, name, type, parent_id, ...)
+activate DB
+DB --> JpaRepo: saved entity with generated ID
+deactivate DB
+JpaRepo --> Repository: AccountJpaEntity
+deactivate JpaRepo
+Repository -> Repository: entity.toDomain()
+Repository --> Service: Account
+deactivate Repository
+
+Service --> Controller: Account
+deactivate Service
+
+Controller -> Controller: AccountResponse.fromDomain(account)
+Controller --> Client: 201 Created\n(AccountResponse)
+deactivate Controller
+
+@enduml

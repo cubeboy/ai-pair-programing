@@ -1,0 +1,111 @@
+@startuml Sequence Diagram - Update Account
+
+!theme plain
+title 회계 관리 솔루션 - 계정과목 수정 시퀀스 다이어그램
+
+actor Client
+participant "AccountController" as Controller
+participant "AccountService" as Service
+participant "AccountRepositoryImpl" as Repository
+participant "AccountJpaRepository" as JpaRepo
+database "Database" as DB
+
+Client -> Controller: PUT /api/v1/accounts/{id}\n(UpdateAccountRequest)
+activate Controller
+
+Controller -> Controller: UpdateAccountCommand 생성
+
+Controller -> Service: updateAccount(command)
+activate Service
+
+' 기존 계정 조회
+Service -> Repository: findById(accountId)
+activate Repository
+Repository -> JpaRepo: findById(id)
+activate JpaRepo
+JpaRepo -> DB: SELECT * FROM accounts WHERE id = ?
+activate DB
+DB --> JpaRepo: AccountJpaEntity?
+deactivate DB
+JpaRepo --> Repository: Optional<AccountJpaEntity>
+deactivate JpaRepo
+
+alt 계정을 찾을 수 없는 경우
+    Repository --> Service: null
+    deactivate Repository
+    Service --> Controller: throw IllegalArgumentException\n"계정 없음"
+    Controller --> Client: 404 Not Found
+'    stop
+else 계정을 찾은 경우
+    Repository -> Repository: entity.toDomain()
+    Repository --> Service: Account
+    deactivate Repository
+end
+
+' 상위계정 변경 검증 (선택적)
+opt 상위계정 변경이 요청된 경우
+    Service -> Repository: findById(parentId)
+    activate Repository
+    Repository -> JpaRepo: findById(parentId)
+    activate JpaRepo
+    JpaRepo -> DB: SELECT * FROM accounts WHERE id = ?
+    activate DB
+    DB --> JpaRepo: AccountJpaEntity?
+    deactivate DB
+    JpaRepo --> Repository: Optional<AccountJpaEntity>
+    deactivate JpaRepo
+    
+    alt 상위계정을 찾을 수 없는 경우
+        Repository --> Service: null
+        deactivate Repository
+        Service --> Controller: throw IllegalArgumentException\n"상위계정 없음"
+        Controller --> Client: 400 Bad Request
+'        stop
+    else 상위계정이 비활성화된 경우
+        Repository -> Repository: entity.toDomain()
+        Repository --> Service: Account
+        deactivate Repository
+        Service -> Service: parent.isActive 검사
+        alt 비활성 상위계정인 경우
+            Service --> Controller: throw IllegalArgumentException\n"비활성 상위계정"
+            Controller --> Client: 400 Bad Request
+'            stop
+        end
+    else 자기 자신을 상위계정으로 설정하는 경우
+        Repository -> Repository: entity.toDomain()
+        Repository --> Service: Account
+        deactivate Repository
+        Service -> Service: parentId == accountId 검사
+        alt 자기 참조인 경우
+            Service --> Controller: throw IllegalArgumentException\n"자기 자신을 상위계정으로 설정"
+            Controller --> Client: 400 Bad Request
+'            stop
+        end
+    end
+end
+
+' 계정 정보 업데이트 및 저장
+Service -> Service: account.copy(name, parentId)
+Service -> Repository: save(updatedAccount)
+activate Repository
+Repository -> Repository: AccountJpaEntity.fromDomain(account)
+Repository -> JpaRepo: save(entity)
+activate JpaRepo
+JpaRepo -> DB: UPDATE accounts SET\nname = ?, parent_id = ?, updated_at = ?\nWHERE id = ?
+activate DB
+DB --> JpaRepo: updated entity
+deactivate DB
+JpaRepo --> Repository: AccountJpaEntity
+deactivate JpaRepo
+Repository -> Repository: entity.toDomain()
+Repository --> Service: Account
+deactivate Repository
+
+Service --> Controller: Account
+deactivate Service
+
+Controller -> Controller: AccountResponse.fromDomain(account)
+Controller --> Client: 200 OK\n(AccountResponse)
+deactivate Controller
+
+@enduml
