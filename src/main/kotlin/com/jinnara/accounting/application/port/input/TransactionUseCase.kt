@@ -1,4 +1,4 @@
-package com.jinnara.accounting.application.port.`in`
+package com.jinnara.accounting.application.port.input
 
 import com.jinnara.accounting.domain.account.AccountId
 import com.jinnara.accounting.domain.transaction.EntryType

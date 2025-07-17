@@ -1,8 +1,8 @@
 package com.jinnara.accounting.`interface`.rest
 
-import com.jinnara.accounting.application.port.`in`.AccountUseCase
-import com.jinnara.accounting.application.port.`in`.CreateAccountCommand
-import com.jinnara.accounting.application.port.`in`.UpdateAccountCommand
+import com.jinnara.accounting.application.port.input.AccountUseCase
+import com.jinnara.accounting.application.port.input.CreateAccountCommand
+import com.jinnara.accounting.application.port.input.UpdateAccountCommand
 import com.jinnara.accounting.domain.account.AccountId
 import com.jinnara.accounting.domain.account.AccountType
 import com.jinnara.accounting.`interface`.rest.dto.AccountResponse

@@ -1,6 +1,6 @@
 package com.jinnara.accounting.infrastructure.persistence.account
 
-import com.jinnara.accounting.application.port.out.AccountRepository
+import com.jinnara.accounting.application.port.output.AccountRepository
 import com.jinnara.accounting.domain.account.Account
 import com.jinnara.accounting.domain.account.AccountId
 import com.jinnara.accounting.domain.account.AccountType
