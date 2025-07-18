@@ -1,0 +1,61 @@
+@startuml Class Diagram - Accounting System
+
+title 회계 관리 솔루션 - web interface layer
+
+package "Adapter Layer" {
+    package "rest" {
+        class AccountController {
+            -accountUseCase: AccountUseCase
+            +createAccount(request: CreateAccountRequest): ResponseEntity<AccountResponse>
+            +updateAccount(id: Long, request: UpdateAccountRequest): ResponseEntity<AccountResponse>
+            +deactivateAccount(id: Long): ResponseEntity<AccountResponse>
+            +getAccount(id: Long): ResponseEntity<AccountResponse>
+            +getAccounts(type: AccountType?): ResponseEntity<List<AccountResponse>>
+        }
+
+        package "dto" {
+            class AccountResponse {
+                +id: Long
+                +code: String
+                +name: String
+                +type: AccountType
+                +parentId: Long?
+                +isActive: Boolean
+                +createdAt: LocalDateTime
+                +updatedAt: LocalDateTime
+                +fromDomain(account: Account): AccountResponse
+            }
+
+            class CreateAccountRequest {
+                +code: String
+                +name: String
+                +type: AccountType
+                +parentId: Long?
+            }
+
+            class UpdateAccountRequest {
+                +name: String
+                +parentId: Long?
+            }
+        }
+    }
+    AccountController ||--|| AccountResponse : creates
+    AccountController ||--|| CreateAccountRequest : receives
+    AccountController ||--|| UpdateAccountRequest : receives
+}
+
+package "Application Layer" {
+    package "port.in" {
+        interface AccountUseCase {
+            +createAccount(command: CreateAccountCommand): Account
+            +updateAccount(command: UpdateAccountCommand): Account
+            +deactivateAccount(accountId: AccountId): Account
+            +getAccount(accountId: AccountId): Account
+            +getAccountsByType(type: AccountType): List<Account>
+            +getAllActiveAccounts(): List<Account>
+        }
+    }
+}
+
+AccountController ||--|| AccountUseCase : uses
+@enduml

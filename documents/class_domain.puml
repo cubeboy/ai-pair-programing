@@ -1,0 +1,80 @@
+@startuml
+title 회계 관리 솔루션 - domain layer
+
+package "Domain Layer" {
+    package "account" {
+        class Account {
+            -id: AccountId
+            -code: String
+            -name: String
+            -type: AccountType
+            -parentId: AccountId?
+            -isActive: Boolean
+            -createdAt: LocalDateTime
+            -updatedAt: LocalDateTime
+            +isDebitAccount(): Boolean
+            +isCreditAccount(): Boolean
+            +deactivate(): Account
+        }
+
+        class AccountId {
+            +value: Long
+        }
+
+        enum AccountType {
+            ASSET
+            LIABILITY
+            EQUITY
+            REVENUE
+            EXPENSE
+        }
+    }
+
+    package "transaction" {
+        class Transaction {
+            -id: TransactionId
+            -date: LocalDate
+            -description: String
+            -reference: String?
+            -entries: List<TransactionEntry>
+            -status: TransactionStatus
+            -createdAt: LocalDateTime
+            -updatedAt: LocalDateTime
+            -isBalanced(): Boolean
+            +post(): Transaction
+            +reverse(): Transaction
+        }
+
+        class TransactionId {
+            +value: Long
+        }
+
+        class TransactionEntry {
+            -accountId: AccountId
+            -type: EntryType
+            -amount: BigDecimal
+            -description: String?
+        }
+
+        enum EntryType {
+            DEBIT
+            CREDIT
+        }
+
+        enum TransactionStatus {
+            DRAFT
+            POSTED
+            REVERSED
+        }
+    }
+}
+Account ||--|| AccountId : has
+Account ||--|| AccountType : has
+Account ||--o{ Account : parent/child
+
+Transaction ||--|| TransactionId : has
+Transaction ||--|| TransactionStatus : has
+Transaction ||--o{ TransactionEntry : contains
+TransactionEntry ||--|| AccountId : references
+TransactionEntry ||--|| EntryType : has
+@enduml

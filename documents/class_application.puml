@@ -1,0 +1,76 @@
+@startuml
+title 회계 관리 솔루션 - application layer
+package "Application Layer" {
+    package "port.in" {
+        interface AccountUseCase {
+            +createAccount(command: CreateAccountCommand): Account
+            +updateAccount(command: UpdateAccountCommand): Account
+            +deactivateAccount(accountId: AccountId): Account
+            +getAccount(accountId: AccountId): Account
+            +getAccountsByType(type: AccountType): List<Account>
+            +getAllActiveAccounts(): List<Account>
+        }
+
+        interface TransactionUseCase {
+            +createTransaction(command: CreateTransactionCommand): Transaction
+            +postTransaction(transactionId: TransactionId): Transaction
+            +reverseTransaction(transactionId: TransactionId): Transaction
+            +getTransaction(transactionId: TransactionId): Transaction
+            +getTransactionsByAccount(accountId: AccountId): List<Transaction>
+            +getTransactionsByDateRange(startDate: LocalDate, endDate: LocalDate): List<Transaction>
+        }
+    }
+    package "port.out" {
+        interface AccountRepository {
+            +save(account: Account): Account
+            +findById(id: AccountId): Account?
+            +findByCode(code: String): Account?
+            +findByType(type: AccountType): List<Account>
+            +findAllActive(): List<Account>
+            +findByParentId(parentId: AccountId): List<Account>
+            +existsByCode(code: String): Boolean
+            +delete(id: AccountId)
+        }
+    }
+    package "port.command" {
+        class CreateAccountCommand {
+            +code: String
+            +name: String
+            +type: AccountType
+            +parentId: AccountId?
+        }
+
+        class UpdateAccountCommand {
+            +accountId: AccountId
+            +name: String
+            +parentId: AccountId?
+        }
+
+        class CreateTransactionCommand {
+            +date: LocalDate
+            +description: String
+            +reference: String?
+            +entries: List<CreateTransactionEntryCommand>
+        }
+
+        class CreateTransactionEntryCommand {
+            +accountId: AccountId
+            +type: EntryType
+            +amount: BigDecimal
+            +description: String?
+        }
+    }
+    package "service" {
+        class AccountService {
+            -accountRepository: AccountRepository
+            +createAccount(command: CreateAccountCommand): Account
+            +updateAccount(command: UpdateAccountCommand): Account
+            +deactivateAccount(accountId: AccountId): Account
+            +getAccount(accountId: AccountId): Account
+            +getAccountsByType(type: AccountType): List<Account>
+            +getAllActiveAccounts(): List<Account>
+        }
+    }
+    AccountService ..|> AccountUseCase : implements
+}
+@enduml
