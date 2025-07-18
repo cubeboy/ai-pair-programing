@@ -1,4 +1,4 @@
-package com.jinnara.accounting.`interface`.rest.dto
+package com.jinnara.accounting.adapter.rest.dto
 
 import com.jinnara.accounting.domain.account.Account
 import com.jinnara.accounting.domain.account.AccountType

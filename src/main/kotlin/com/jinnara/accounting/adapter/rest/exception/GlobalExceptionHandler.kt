@@ -1,4 +1,4 @@
-package com.jinnara.accounting.`interface`.rest.exception
+package com.jinnara.accounting.adapter.rest.exception
 
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity

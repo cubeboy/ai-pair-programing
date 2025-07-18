@@ -1,12 +1,12 @@
-package com.jinnara.accounting.`interface`.rest
+package com.jinnara.accounting.adapter.rest
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.jinnara.accounting.application.port.input.AccountUseCase
 import com.jinnara.accounting.domain.account.Account
 import com.jinnara.accounting.domain.account.AccountId
 import com.jinnara.accounting.domain.account.AccountType
-import com.jinnara.accounting.`interface`.rest.dto.CreateAccountRequest
-import com.jinnara.accounting.`interface`.rest.dto.UpdateAccountRequest
+import com.jinnara.accounting.adapter.rest.dto.CreateAccountRequest
+import com.jinnara.accounting.adapter.rest.dto.UpdateAccountRequest
 import com.ninjasquad.springmockk.MockkBean
 import io.mockk.every
 import io.mockk.verify
