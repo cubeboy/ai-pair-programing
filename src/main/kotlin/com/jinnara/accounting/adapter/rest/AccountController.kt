@@ -1,13 +1,13 @@
 package com.jinnara.accounting.adapter.rest
 
 import com.jinnara.accounting.application.port.input.AccountUseCase
-import com.jinnara.accounting.application.port.input.CreateAccountCommand
-import com.jinnara.accounting.application.port.input.UpdateAccountCommand
 import com.jinnara.accounting.domain.account.AccountId
 import com.jinnara.accounting.domain.account.AccountType
 import com.jinnara.accounting.adapter.rest.dto.AccountResponse
 import com.jinnara.accounting.adapter.rest.dto.CreateAccountRequest
 import com.jinnara.accounting.adapter.rest.dto.UpdateAccountRequest
+import com.jinnara.accounting.application.port.command.CreateAccountCommand
+import com.jinnara.accounting.application.port.command.UpdateAccountCommand
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*

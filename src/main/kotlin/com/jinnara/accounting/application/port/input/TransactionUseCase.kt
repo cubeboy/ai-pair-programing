@@ -1,10 +1,9 @@
 package com.jinnara.accounting.application.port.input
 
 import com.jinnara.accounting.domain.account.AccountId
-import com.jinnara.accounting.domain.transaction.EntryType
 import com.jinnara.accounting.domain.transaction.Transaction
 import com.jinnara.accounting.domain.transaction.TransactionId
-import java.math.BigDecimal
+import com.jinnara.accounting.application.port.command.CreateTransactionCommand
 import java.time.LocalDate
 
 interface TransactionUseCase {
@@ -15,17 +14,3 @@ interface TransactionUseCase {
     fun getTransactionsByAccount(accountId: AccountId): List<Transaction>
     fun getTransactionsByDateRange(startDate: LocalDate, endDate: LocalDate): List<Transaction>
 }
-
-data class CreateTransactionCommand(
-    val date: LocalDate,
-    val description: String,
-    val reference: String?,
-    val entries: List<CreateTransactionEntryCommand>
-)
-
-data class CreateTransactionEntryCommand(
-    val accountId: AccountId,
-    val type: EntryType,
-    val amount: BigDecimal,
-    val description: String?
-)
