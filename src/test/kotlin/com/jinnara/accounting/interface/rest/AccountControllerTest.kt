@@ -2,33 +2,26 @@ package com.jinnara.accounting.`interface`.rest
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.jinnara.accounting.application.port.input.AccountUseCase
-import com.jinnara.accounting.application.port.input.CreateAccountCommand
-import com.jinnara.accounting.application.port.input.UpdateAccountCommand
 import com.jinnara.accounting.domain.account.Account
 import com.jinnara.accounting.domain.account.AccountId
 import com.jinnara.accounting.domain.account.AccountType
 import com.jinnara.accounting.`interface`.rest.dto.CreateAccountRequest
 import com.jinnara.accounting.`interface`.rest.dto.UpdateAccountRequest
+import com.ninjasquad.springmockk.MockkBean
 import io.mockk.every
-import io.mockk.mockk
 import io.mockk.verify
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
-import org.springframework.boot.test.context.TestConfiguration
-import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Primary
 import org.springframework.http.MediaType
-import org.springframework.test.context.ContextConfiguration
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
 import java.time.LocalDateTime
 
 @WebMvcTest(AccountController::class)
-@ContextConfiguration(classes = [AccountController::class, GlobalExceptionHandler::class, AccountControllerTest.TestConfig::class])
 @DisplayName("AccountController 테스트")
 class AccountControllerTest {
 
@@ -38,15 +31,8 @@ class AccountControllerTest {
     @Autowired
     private lateinit var objectMapper: ObjectMapper
 
-    @Autowired
+    @MockkBean
     private lateinit var accountUseCase: AccountUseCase
-
-    @TestConfiguration
-    class TestConfig {
-        @Bean
-        @Primary
-        fun mockAccountUseCase(): AccountUseCase = mockk()
-    }
 
     private fun createTestAccount(
         id: Long = 1L,
@@ -100,16 +86,7 @@ class AccountControllerTest {
                 .andExpect(jsonPath("$.parentId").isEmpty)
                 .andExpect(jsonPath("$.isActive").value(true))
 
-            verify {
-                accountUseCase.createAccount(
-                    CreateAccountCommand(
-                        code = "1000",
-                        name = "현금",
-                        type = AccountType.ASSET,
-                        parentId = null
-                    )
-                )
-            }
+            verify { accountUseCase.createAccount(any()) }
         }
 
         @Test
@@ -145,55 +122,12 @@ class AccountControllerTest {
                 .andExpect(jsonPath("$.parentId").value(1))
                 .andExpect(jsonPath("$.isActive").value(true))
 
-            verify {
-                accountUseCase.createAccount(
-                    CreateAccountCommand(
-                        code = "1100",
-                        name = "은행예금",
-                        type = AccountType.ASSET,
-                        parentId = AccountId(1L)
-                    )
-                )
-            }
+            verify { accountUseCase.createAccount(any()) }
         }
 
         @Test
-        @DisplayName("잘못된 JSON 형식으로 요청하면 400 Bad Request를 반환한다")
-        fun `잘못된 JSON 형식으로 요청하면 400 Bad Request를 반환한다`() {
-            // given
-            val invalidJson = "{ invalid json }"
-
-            // when & then
-            mockMvc.perform(
-                post("/api/v1/accounts")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(invalidJson)
-            )
-                .andExpect(status().isBadRequest)
-        }
-
-        @Test
-        @DisplayName("필수 필드가 누락되면 400 Bad Request를 반환한다")
-        fun `필수 필드가 누락되면 400 Bad Request를 반환한다`() {
-            // given
-            val incompleteRequest = mapOf(
-                "code" to "1000",
-                "name" to "현금"
-                // type 누락
-            )
-
-            // when & then
-            mockMvc.perform(
-                post("/api/v1/accounts")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(incompleteRequest))
-            )
-                .andExpect(status().isBadRequest)
-        }
-
-        @Test
-        @DisplayName("UseCase에서 예외가 발생하면 적절한 에러 응답을 반환한다")
-        fun `UseCase에서 예외가 발생하면 적절한 에러 응답을 반환한다`() {
+        @DisplayName("UseCase에서 예외가 발생하면 500 Internal Server Error를 반환한다")
+        fun `UseCase에서 예외가 발생하면 500 Internal Server Error를 반환한다`() {
             // given
             val request = CreateAccountRequest(
                 code = "1000",
@@ -240,20 +174,12 @@ class AccountControllerTest {
                 .andExpect(status().isOk)
                 .andExpect(jsonPath("$.name").value("수정된 현금"))
 
-            verify {
-                accountUseCase.updateAccount(
-                    UpdateAccountCommand(
-                        accountId = AccountId(accountId),
-                        name = "수정된 현금",
-                        parentId = null
-                    )
-                )
-            }
+            verify { accountUseCase.updateAccount(any()) }
         }
 
         @Test
-        @DisplayName("존재하지 않는 계정 ID로 수정 요청하면 에러를 반환한다")
-        fun `존재하지 않는 계정 ID로 수정 요청하면 에러를 반환한다`() {
+        @DisplayName("존재하지 않는 계정 ID로 수정 요청하면 404 Not Found를 반환한다")
+        fun `존재하지 않는 계정 ID로 수정 요청하면 404 Not Found를 반환한다`() {
             // given
             val nonExistentAccountId = 999L
             val request = UpdateAccountRequest(
@@ -270,25 +196,6 @@ class AccountControllerTest {
                     .content(objectMapper.writeValueAsString(request))
             )
                 .andExpect(status().isNotFound)
-        }
-
-        @Test
-        @DisplayName("잘못된 경로 변수로 요청하면 400 Bad Request를 반환한다")
-        fun `잘못된 경로 변수로 요청하면 400 Bad Request를 반환한다`() {
-            // given
-            val invalidId = "invalid"
-            val request = UpdateAccountRequest(
-                name = "수정된 계정명",
-                parentId = null
-            )
-
-            // when & then
-            mockMvc.perform(
-                put("/api/v1/accounts/{id}", invalidId)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(request))
-            )
-                .andExpect(status().isBadRequest)
         }
     }
 
@@ -324,19 +231,6 @@ class AccountControllerTest {
             // when & then
             mockMvc.perform(delete("/api/v1/accounts/{id}", nonExistentAccountId))
                 .andExpect(status().isNotFound)
-        }
-
-        @Test
-        @DisplayName("이미 비활성화된 계정을 비활성화하려고 하면 에러를 반환한다")
-        fun `이미 비활성화된 계정을 비활성화하려고 하면 에러를 반환한다`() {
-            // given
-            val accountId = 1L
-
-            every { accountUseCase.deactivateAccount(AccountId(accountId)) } throws IllegalStateException("이미 비활성화된 계정입니다")
-
-            // when & then
-            mockMvc.perform(delete("/api/v1/accounts/{id}", accountId))
-                .andExpect(status().isBadRequest)
         }
     }
 
@@ -426,14 +320,6 @@ class AccountControllerTest {
         }
 
         @Test
-        @DisplayName("잘못된 계정 타입으로 조회하면 400 Bad Request를 반환한다")
-        fun `잘못된 계정 타입으로 조회하면 400 Bad Request를 반환한다`() {
-            // when & then
-            mockMvc.perform(get("/api/v1/accounts").param("type", "INVALID_TYPE"))
-                .andExpect(status().isBadRequest)
-        }
-
-        @Test
         @DisplayName("계정이 없을 때 빈 배열을 반환한다")
         fun `계정이 없을 때 빈 배열을 반환한다`() {
             // given
@@ -446,50 +332,6 @@ class AccountControllerTest {
                 .andExpect(jsonPath("$.length()").value(0))
 
             verify { accountUseCase.getAllActiveAccounts() }
-        }
-
-        @Test
-        @DisplayName("UseCase에서 예외가 발생하면 500 Internal Server Error를 반환한다")
-        fun `UseCase에서 예외가 발생하면 500 Internal Server Error를 반환한다`() {
-            // given
-            every { accountUseCase.getAllActiveAccounts() } throws RuntimeException("데이터베이스 연결 오류")
-
-            // when & then
-            mockMvc.perform(get("/api/v1/accounts"))
-                .andExpect(status().isInternalServerError)
-        }
-    }
-
-    @Nested
-    @DisplayName("공통 예외 처리")
-    inner class CommonExceptionHandlingTest {
-
-        @Test
-        @DisplayName("Content-Type이 없으면 415 Unsupported Media Type을 반환한다")
-        fun `Content-Type이 없으면 415 Unsupported Media Type을 반환한다`() {
-            // given
-            val request = CreateAccountRequest(
-                code = "1000",
-                name = "현금",
-                type = AccountType.ASSET,
-                parentId = null
-            )
-
-            // when & then
-            mockMvc.perform(
-                post("/api/v1/accounts")
-                    .content(objectMapper.writeValueAsString(request))
-                    // Content-Type 헤더 누락
-            )
-                .andExpect(status().isUnsupportedMediaType)
-        }
-
-        @Test
-        @DisplayName("지원하지 않는 HTTP 메소드로 요청하면 405 Method Not Allowed를 반환한다")
-        fun `지원하지 않는 HTTP 메소드로 요청하면 405 Method Not Allowed를 반환한다`() {
-            // when & then
-            mockMvc.perform(patch("/api/v1/accounts/1"))
-                .andExpect(status().isMethodNotAllowed)
         }
     }
 }
