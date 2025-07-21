@@ -48,4 +48,20 @@ allOpen {
 
 tasks.named('test') {
 	useJUnitPlatform()
+
+	// 테스트 실행 시 기본 프로파일을 test로 설정
+	systemProperty 'spring.profiles.active', 'test'
+
+	// 테스트 메모리 설정
+	maxHeapSize = '4G'
+
+	// 테스트 병렬 실행 설정
+	maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+
+	// 테스트 결과 상세 출력
+	testLogging {
+		events "passed", "skipped", "failed"
+		exceptionFormat "full"
+		showStandardStreams = false
+	}
 }

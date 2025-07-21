@@ -1,0 +1,48 @@
+# 테스트 전용 설정
+spring:
+  application:
+    name: accounting-test
+
+  # 테스트용 데이터소스 설정
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=false
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  # JPA/Hibernate 테스트 설정
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        dialect: org.hibernate.dialect.H2Dialect
+        generate_statistics: false
+    defer-datasource-initialization: true
+
+  # H2 Console 비활성화 (테스트 환경)
+  h2:
+    console:
+      enabled: false
+
+  # SQL 초기화 설정
+  sql:
+    init:
+      mode: never
+
+# 테스트용 로깅 설정
+logging:
+  level:
+    root: WARN
+    com.jinnara.accounting: INFO
+    org.springframework: WARN
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN
+    org.springframework.test: INFO
+    org.springframework.boot.test: INFO
+
+# 테스트 서버 설정 (임의 포트)
+server:
+  port: 0
