@@ -1,0 +1,85 @@
+@startuml Sequence Diagram - Update Transaction
+
+!theme plain
+title 회계 관리 솔루션 - 거래 수정 시퀀스 다이어그램
+
+actor Client
+participant "TransactionController" as Controller
+participant "TransactionService" as Service
+participant "AccountService" as AccountService
+participant "TransactionRepositoryImpl" as Repository
+participant "TransactionJpaRepository" as JpaRepo
+database "Database" as DB
+
+Client -> Controller: PUT /api/v1/transactions/{id}\n(UpdateTransactionRequest)
+activate Controller
+
+Controller -> Controller: UpdateTransactionCommand 생성
+
+Controller -> Service: updateTransaction(id, command)
+activate Service
+
+' 기존 거래 조회
+Service -> Repository: findById(id)
+activate Repository
+Repository -> JpaRepo: findById(id)
+activate JpaRepo
+JpaRepo -> DB: SELECT t.*, je.* FROM transactions t\nLEFT JOIN journal_entries je ON t.id = je.transaction_id\nWHERE t.id = ?
+activate DB
+DB --> JpaRepo: TransactionJpaEntity
+deactivate DB
+JpaRepo --> Repository: Optional<TransactionJpaEntity>
+deactivate JpaRepo
+
+alt 거래가 존재하지 않는 경우
+    Repository --> Service: Optional.empty()
+    Service --> Controller: throw NotFoundException\n"거래를 찾을 수 없습니다"
+    Controller --> Client: 404 Not Found
+else 거래가 존재하는 경우
+    Repository --> Service: Transaction
+    deactivate Repository
+
+    ' 거래 상태 검증
+    Service -> Service: validateTransactionCanBeUpdated(transaction)
+    note right: 승인되거나 마감된 거래는 수정 불가
+
+    ' 새로운 거래 항목 검증
+    Service -> Service: validateJournalEntries(newEntries)
+    note right: 차변과 대변의 합이 일치하는지 검증
+
+    ' 계정과목 존재 여부 검증
+    loop 각 새로운 거래 항목에 대해
+        Service -> AccountService: getAccount(accountId)
+        activate AccountService
+        AccountService --> Service: Account
+        deactivate AccountService
+
+        Service -> Service: validateAccountType(account, entryType)
+        note right: 계정과목 유형과 차/대변 검증
+    end
+
+    ' 거래 업데이트
+    Service -> Service: transaction.update(command)
+
+    ' 거래 저장
+    Service -> Repository: save(transaction)
+    activate Repository
+    Repository -> JpaRepo: save(transactionEntity)
+    activate JpaRepo
+    JpaRepo -> DB: UPDATE transactions\nDELETE FROM journal_entries WHERE transaction_id = ?\nINSERT INTO journal_entries
+    activate DB
+    DB --> JpaRepo: updated entities
+    deactivate DB
+    JpaRepo --> Repository: TransactionJpaEntity
+    deactivate JpaRepo
+    Repository --> Service: Transaction
+    deactivate Repository
+
+    Service --> Controller: TransactionResponse
+    deactivate Service
+
+    Controller --> Client: 200 OK\n(TransactionResponse)
+    deactivate Controller
+end
+
+@enduml

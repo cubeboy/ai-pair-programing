@@ -1,0 +1,92 @@
+@startuml Sequence Diagram - Cancel Transaction
+
+!theme plain
+title 회계 관리 솔루션 - 거래 취소 시퀀스 다이어그램
+
+actor Client
+participant "TransactionController" as Controller
+participant "TransactionService" as Service
+participant "TransactionRepositoryImpl" as Repository
+participant "TransactionJpaRepository" as JpaRepo
+database "Database" as DB
+
+Client -> Controller: POST /api/v1/transactions/{id}/cancel\n(CancelTransactionRequest)
+activate Controller
+
+Controller -> Controller: CancelTransactionCommand 생성
+
+Controller -> Service: cancelTransaction(id, command)
+activate Service
+
+' 기존 거래 조회
+Service -> Repository: findById(id)
+activate Repository
+Repository -> JpaRepo: findById(id)
+activate JpaRepo
+JpaRepo -> DB: SELECT t.*, je.* FROM transactions t\nLEFT JOIN journal_entries je ON t.id = je.transaction_id\nWHERE t.id = ?
+activate DB
+DB --> JpaRepo: TransactionJpaEntity
+deactivate DB
+JpaRepo --> Repository: Optional<TransactionJpaEntity>
+deactivate JpaRepo
+
+alt 거래가 존재하지 않는 경우
+    Repository --> Service: Optional.empty()
+    Service --> Controller: throw NotFoundException\n"거래를 찾을 수 없습니다"
+    Controller --> Client: 404 Not Found
+else 거래가 존재하는 경우
+    Repository --> Service: Transaction
+    deactivate Repository
+
+    ' 거래 취소 가능 여부 검증
+    Service -> Service: validateTransactionCanBeCancelled(transaction)
+    note right: 이미 취소되었거나 마감된 거래는 취소 불가
+
+    alt 거래 취소가 불가능한 경우
+        Service --> Controller: throw IllegalStateException\n"거래를 취소할 수 없습니다"
+        Controller --> Client: 400 Bad Request
+    else 거래 취소가 가능한 경우
+        ' 취소 거래 생성 (역분개)
+        Service -> Service: createReversalTransaction(transaction, command)
+        note right: 기존 거래의 차변/대변을 반대로 하는\n새로운 거래 생성
+
+        ' 기존 거래 상태 변경
+        Service -> Service: transaction.cancel(cancelReason)
+
+        ' 기존 거래 저장
+        Service -> Repository: save(transaction)
+        activate Repository
+        Repository -> JpaRepo: save(transactionEntity)
+        activate JpaRepo
+        JpaRepo -> DB: UPDATE transactions SET status = 'CANCELLED'
+        activate DB
+        DB --> JpaRepo: updated entity
+        deactivate DB
+        JpaRepo --> Repository: TransactionJpaEntity
+        deactivate JpaRepo
+        Repository --> Service: Transaction
+        deactivate Repository
+
+        ' 취소 거래 저장
+        Service -> Repository: save(reversalTransaction)
+        activate Repository
+        Repository -> JpaRepo: save(reversalTransactionEntity)
+        activate JpaRepo
+        JpaRepo -> DB: INSERT INTO transactions\nINSERT INTO journal_entries
+        activate DB
+        DB --> JpaRepo: saved entities
+        deactivate DB
+        JpaRepo --> Repository: TransactionJpaEntity
+        deactivate JpaRepo
+        Repository --> Service: Transaction
+        deactivate Repository
+
+        Service --> Controller: CancelTransactionResponse
+        deactivate Service
+
+        Controller --> Client: 200 OK\n(CancelTransactionResponse)
+        deactivate Controller
+    end
+end
+
+@enduml

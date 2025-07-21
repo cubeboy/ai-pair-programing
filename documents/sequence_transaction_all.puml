@@ -1,0 +1,40 @@
+@startuml Sequence Diagram - Get All Transactions
+
+!theme plain
+title 회계 관리 솔루션 - 거래 목록 조회 시퀀스 다이어그램
+
+actor Client
+participant "TransactionController" as Controller
+participant "TransactionService" as Service
+participant "TransactionRepositoryImpl" as Repository
+participant "TransactionJpaRepository" as JpaRepo
+database "Database" as DB
+
+Client -> Controller: GET /api/v1/transactions\n?page=0&size=20&startDate=2024-01-01&endDate=2024-12-31
+activate Controller
+
+Controller -> Controller: GetTransactionsQuery 생성
+
+Controller -> Service: getTransactions(query)
+activate Service
+
+Service -> Repository: findByDateRangeWithPaging(startDate, endDate, pageable)
+activate Repository
+Repository -> JpaRepo: findByTransactionDateBetween\n(startDate, endDate, pageable)
+activate JpaRepo
+JpaRepo -> DB: SELECT t.*, je.* FROM transactions t\nLEFT JOIN journal_entries je ON t.id = je.transaction_id\nWHERE t.transaction_date BETWEEN ? AND ?\nORDER BY t.transaction_date DESC, t.id DESC\nLIMIT ? OFFSET ?
+activate DB
+DB --> JpaRepo: Page<TransactionJpaEntity>
+deactivate DB
+JpaRepo --> Repository: Page<TransactionJpaEntity>
+deactivate JpaRepo
+Repository --> Service: Page<Transaction>
+deactivate Repository
+
+Service --> Controller: TransactionPageResponse
+deactivate Service
+
+Controller --> Client: 200 OK\n(TransactionPageResponse)
+deactivate Controller
+
+@enduml

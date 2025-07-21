@@ -1,0 +1,60 @@
+@startuml Sequence Diagram - Create Transaction
+
+!theme plain
+title 회계 관리 솔루션 - 거래 생성 시퀀스 다이어그램
+
+actor Client
+participant "TransactionController" as Controller
+participant "TransactionService" as Service
+participant "AccountService" as AccountService
+participant "TransactionRepositoryImpl" as Repository
+participant "TransactionJpaRepository" as JpaRepo
+database "Database" as DB
+
+Client -> Controller: POST /api/v1/transactions\n(CreateTransactionRequest)
+activate Controller
+
+Controller -> Controller: CreateTransactionCommand 생성
+
+Controller -> Service: createTransaction(command)
+activate Service
+
+' 거래 항목 검증
+Service -> Service: validateJournalEntries(entries)
+note right: 차변과 대변의 합이 일치하는지 검증
+
+' 계정과목 존재 여부 검증
+loop 각 거래 항목에 대해
+    Service -> AccountService: getAccount(accountId)
+    activate AccountService
+    AccountService --> Service: Account
+    deactivate AccountService
+
+    Service -> Service: validateAccountType(account, entryType)
+    note right: 계정과목 유형과 차/대변 검증
+end
+
+' 거래 도메인 객체 생성
+Service -> Service: Transaction.create(...)
+
+' 거래 저장
+Service -> Repository: save(transaction)
+activate Repository
+Repository -> JpaRepo: save(transactionEntity)
+activate JpaRepo
+JpaRepo -> DB: INSERT INTO transactions\nINSERT INTO journal_entries
+activate DB
+DB --> JpaRepo: saved entities
+deactivate DB
+JpaRepo --> Repository: TransactionJpaEntity
+deactivate JpaRepo
+Repository --> Service: Transaction
+deactivate Repository
+
+Service --> Controller: TransactionResponse
+deactivate Service
+
+Controller --> Client: 201 Created\n(TransactionResponse)
+deactivate Controller
+
+@enduml

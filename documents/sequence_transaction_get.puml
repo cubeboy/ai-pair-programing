@@ -1,0 +1,45 @@
+@startuml Sequence Diagram - Get Transaction
+
+!theme plain
+title 회계 관리 솔루션 - 거래 조회 시퀀스 다이어그램
+
+actor Client
+participant "TransactionController" as Controller
+participant "TransactionService" as Service
+participant "TransactionRepositoryImpl" as Repository
+participant "TransactionJpaRepository" as JpaRepo
+database "Database" as DB
+
+Client -> Controller: GET /api/v1/transactions/{id}
+activate Controller
+
+Controller -> Service: getTransaction(id)
+activate Service
+
+Service -> Repository: findById(id)
+activate Repository
+Repository -> JpaRepo: findById(id)
+activate JpaRepo
+JpaRepo -> DB: SELECT t.*, je.* FROM transactions t\nLEFT JOIN journal_entries je ON t.id = je.transaction_id\nWHERE t.id = ?
+activate DB
+DB --> JpaRepo: TransactionJpaEntity with JournalEntries
+deactivate DB
+JpaRepo --> Repository: Optional<TransactionJpaEntity>
+deactivate JpaRepo
+
+alt 거래가 존재하지 않는 경우
+    Repository --> Service: Optional.empty()
+    Service --> Controller: throw NotFoundException\n"거래를 찾을 수 없습니다"
+    Controller --> Client: 404 Not Found
+else 거래가 존재하는 경우
+    Repository --> Service: Transaction
+    deactivate Repository
+
+    Service --> Controller: TransactionResponse
+    deactivate Service
+
+    Controller --> Client: 200 OK\n(TransactionResponse)
+    deactivate Controller
+end
+
+@enduml
