@@ -125,3 +125,6 @@ data class Transaction(
         }
     }
 }
+
+@JvmInline
+value class TransactionId(val value: Long)
