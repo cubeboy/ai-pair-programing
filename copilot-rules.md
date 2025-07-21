@@ -150,6 +150,8 @@ fun AccountJpaEntity.updateFrom(domain: Account): AccountJpaEntity {
 - 단위 테스트의 Mockup Framework 는 Mockk 사용
 - 통합 테스트는 Spring Boot Test
 - 테스트 메소드명은 한글로 명확하게 작성
+- JPA Repository 구현체 테스트는 @DataJpaTest 어노테이션 사용
+- 테스트 케이스는 정상 케이스 보다 예외 및 오류 케이스를 풍부하게 작성
 
 ### 6. 의존성 관리
 - Spring Boot Starter 적극 활용
