@@ -5,26 +5,20 @@ spring:
   # JPA/Hibernate 설정
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update
     show-sql: true
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.H2Dialect
-    defer-datasource-initialization: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: account
 
   # 데이터소스 설정
   datasource:
-    url: jdbc:h2:mem:testdb
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-
-  # H2 Console 설정 (개발용)
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
+    url: jdbc:postgresql://localhost:9001/accounting?currentSchema=account
+    driver-class-name: org.postgresql.Driver
+    username: postgres
+    password: postgres
 
 # 로깅 설정
 logging:

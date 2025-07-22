@@ -56,10 +56,11 @@ com.jinnara.accounting/
 
 - **언어**: Kotlin
 - **프레임워크**: Spring Boot 3.5.3
-- **데이터베이스**: H2 (개발용)
+- **데이터베이스**: PostgreSQL (Docker), H2 (테스트용)
 - **ORM**: Spring Data JPA
 - **빌드 도구**: Gradle
 - **JVM**: Java 21
+- **컨테이너**: Docker, Docker Compose
 
 ## 주요 도메인 모델
 
@@ -84,12 +85,61 @@ com.jinnara.accounting/
 
 ## 실행 방법
 
+### 1. 사전 준비 (Docker 환경 구성)
+
+애플리케이션 실행 전에 PostgreSQL 데이터베이스를 Docker로 구성해야 합니다.
+
 ```bash
-# 애플리케이션 빌드
+# PostgreSQL 컨테이너 시작
+docker-compose up -d
+
+# 컨테이너 상태 확인
+docker ps
+
+# 컨테이너 로그 확인 (선택사항)
+docker-compose logs postgres
+```
+
+**PostgreSQL 연결 정보:**
+- **호스트**: localhost
+- **포트**: 90001
+- **데이터베이스**: accounting
+- **스키마**: account
+- **사용자명**: postgres
+- **비밀번호**: postgres
+
+### 2. 애플리케이션 실행
+
+```bash
+# 의존성 설치 및 애플리케이션 빌드
 ./gradlew build
 
 # 애플리케이션 실행
 ./gradlew bootRun
+```
+
+### 3. 서비스 종료
+
+```bash
+# 애플리케이션 종료 (Ctrl+C)
+
+# PostgreSQL 컨테이너 종료
+docker-compose down
+
+# 데이터를 포함하여 완전 삭제 (선택사항)
+docker-compose down -v
+```
+
+### 테스트 실행
+
+테스트는 H2 인메모리 데이터베이스를 사용하므로 Docker 컨테이너 없이도 실행 가능합니다.
+
+```bash
+# 전체 테스트 실행
+./gradlew test
+
+# 특정 테스트 클래스 실행
+./gradlew test --tests "*AccountServiceTest"
 ```
 
 ## 개발 가이드라인
