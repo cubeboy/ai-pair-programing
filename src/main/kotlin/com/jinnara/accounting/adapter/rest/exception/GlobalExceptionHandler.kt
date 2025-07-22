@@ -13,6 +13,9 @@ import java.time.LocalDateTime
  */
 @RestControllerAdvice
 class GlobalExceptionHandler {
+    companion object {
+        private val logger = org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler::class.java)
+    }
 
     @ExceptionHandler(NoSuchElementException::class)
     fun handleNotFound(ex: NoSuchElementException): ResponseEntity<ErrorResponse> {
@@ -79,6 +82,7 @@ class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception::class)
     fun handleGenericException(ex: Exception): ResponseEntity<ErrorResponse> {
+        logger.error("예상치 못한 오류 발생 :: ", ex)
         val errorResponse = ErrorResponse(
             message = "예상하지 못한 오류가 발생했습니다",
             timestamp = LocalDateTime.now(),
